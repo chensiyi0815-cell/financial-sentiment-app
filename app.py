@@ -17,7 +17,7 @@ if 'history' not in st.session_state:
 # ==================== 加载模型 ====================
 @st.cache_resource
 def load_model():
-    model_id = "Norarara/financial-sentiment-model"
+    model_id = "ychenqz/financial-sentiment-model"
     # 强制指定使用 CPU 运行
     return pipeline("text-classification", model=model_id, device=-1)
 
