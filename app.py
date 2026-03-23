@@ -1,6 +1,5 @@
 import streamlit as st
 from transformers import pipeline
-import torch
 import pandas as pd
 
 # ==================== Global Page Setup ====================
@@ -59,7 +58,7 @@ def load_models():
     sentiment_model_id = "ychenqz/financial-sentiment-model" 
     sentiment_pipe = pipeline("text-classification", model=sentiment_model_id, device=-1)
     
-    # 2. Topic Classification Model
+    # 2. Topic Classification Model (Requires token authentication)
     topic_model_id = "nickmuchi/finbert-tone-finetuned-finance-topic-classification"
     topic_pipe = pipeline("text-classification", model=topic_model_id, device=-1, token=hf_token)
     
@@ -77,7 +76,7 @@ try:
         "Enter English financial news here (💡 Tip: Inputs with < 300 words yield more accurate results):", 
         value="",               
         height=100,
-        placeholder="Please enter text here"  
+        placeholder="Please enter text here..."  
     )
 
     # Dynamic word count logic
@@ -113,6 +112,7 @@ try:
             col1, col2 = st.columns(2)
             
             with col1:
+                # Sentiment Judgement
                 if "POSITIVE" in sent_label.upper():
                     st.success(f"**Sentiment**: 😊 Positive (Confidence: {sent_score:.1%})")
                     display_sent = "😊 Positive"
@@ -124,12 +124,13 @@ try:
                     display_sent = "😐 Neutral"
             
             with col2:
+                # Topic Judgement
                 if mapped_topic == "Others":
                     st.warning(f"**Core Topic**: 📦 {mapped_topic}")
                 else:
                     st.info(f"**Core Topic**: 🏷️ {mapped_topic}")
             
-            # 🌟 FIXED: Strictly enforcing the 5 requested English columns
+            # Record historical data strictly with the 5 English keys
             st.session_state.history.insert(0, {
                 "Original News": user_input,
                 "Sentiment": display_sent,
@@ -138,6 +139,7 @@ try:
                 "Topic Confidence": f"{topic_score:.1%}"
             })
             
+            # Strictly control history records up to 50 items
             st.session_state.history = st.session_state.history[:50]
 
     # ==================== History Dashboard Section ====================
@@ -145,8 +147,14 @@ try:
         st.markdown("<br><hr>", unsafe_allow_html=True)
         st.markdown("### 📝 Historical Analysis Records")
         
+        # 1. Create initial DataFrame
         history_df = pd.DataFrame(st.session_state.history)
         
+        # 🌟 2. Core Fix: Force Pandas to ONLY keep these 5 exact English columns
+        desired_columns = ["Original News", "Sentiment", "Topic", "Sentiment Confidence", "Topic Confidence"]
+        history_df = history_df.reindex(columns=desired_columns)
+        
+        # Control Panel: Search box (wide) + Download button (narrow) + Clear button (narrow)
         col_search, col_download, col_clear = st.columns([2, 1, 1])
         
         with col_search:
@@ -155,6 +163,7 @@ try:
         with col_download:
             st.write("") 
             st.write("")
+            # Generate CSV with utf-8-sig
             csv_data = history_df.to_csv(index=False).encode('utf-8-sig') 
             st.download_button(
                 label="📥 Download CSV",
@@ -171,14 +180,15 @@ try:
                 st.session_state.history = []
                 st.rerun()
 
+        # Filter data based on search query
         if search_query:
-            # Match the exact English column name "Original News"
             display_df = history_df[history_df["Original News"].str.contains(search_query, case=False, na=False)]
             st.caption(f"Found {len(display_df)} records containing '{search_query}' (Max 50 saved, showing top 5):")
         else:
             display_df = history_df
             st.caption(f"Currently saved {len(history_df)} records (Max 50 saved, showing top 5):")
             
+        # Display only the top 5 records in the frontend
         st.dataframe(display_df.head(5), use_container_width=True)
 
 except Exception as e:
