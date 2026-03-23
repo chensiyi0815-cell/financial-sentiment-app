@@ -3,77 +3,133 @@ from transformers import pipeline
 import torch
 import pandas as pd
 
-# 页面设置
-st.set_page_config(page_title="金融情感分析", page_icon="📈", layout="wide")
+# ==================== 页面全局设置 ====================
+st.set_page_config(page_title="金融新闻智能分析引擎", page_icon="📈", layout="wide")
 
-st.title("📈 金融新闻情感分析系统")
-st.write("输入一条金融新闻语句，模型将自动识别其情绪倾向。")
+st.title("📈 金融新闻智能分析引擎")
+st.write("输入一条金融新闻语句，系统将自动进行「情感诊断」与「主题归类」。")
+
+# ==================== 核心业务映射函数 ====================
+# 使用经过验证的 nickmuchi 模型 6 大主题映射函数
+def nickmuchi_to_6(nickmuchi_label):
+    mapping = {
+        "Analyst Update": "Others",
+        "Fed | Central Banks": "Macro",
+        "Company | Product News": "Company | Product News",
+        "Treasuries | Corporate Debt": "Financials",
+        "Dividend": "Stock",
+        "Earnings": "Financials",
+        "Energy | Oil": "Others",
+        "Financials": "Financials",
+        "Currencies": "Macro",
+        "General News | Opinion": "Others",
+        "Gold | Metals | Materials": "Macro",
+        "IPO": "Stock",
+        "Legal | Regulation": "Company | Product News",
+        "M&A | Investments": "M&A | Investments",
+        "Macro": "Macro",
+        "Markets": "Macro",
+        "Politics": "Others",
+        "Personnel Change": "Company | Product News",
+        "Stock Commentary": "Stock",
+        "Stock Movement": "Stock",
+    }
+    return mapping.get(nickmuchi_label, 'Others')
 
 # ==================== 初始化 Session State ====================
-# 如果当前会话还没有 history 变量，就初始化一个空列表
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# ==================== 加载模型 ====================
-@st.cache_resource
-def load_model():
-    model_id = "ychenqz/financial-sentiment-model"
-    # 强制指定使用 CPU 运行
-    return pipeline("text-classification", model=model_id, device=-1)
+# ==================== 双引擎加载 ====================
+@st.cache_resource(show_spinner="正在加载 AI 分析引擎，请稍候...")
+def load_models():
+    # 1. 情感分析模型 (Pipeline 1)
+    sentiment_model_id = "ychenqz/financial-sentiment-model" 
+    sentiment_pipe = pipeline("text-classification", model=sentiment_model_id, device=-1)
+    
+    # 2. 主题分类模型 (Pipeline 2) - 盲测冠军模型
+    topic_model_id = "nickmuchi/finbert-tone-finetuned-finance-topic-classification"
+    topic_pipe = pipeline("text-classification", model=topic_model_id, device=-1)
+    
+    return sentiment_pipe, topic_pipe
 
 try:
-    classifier = load_model()
+    # 唤醒双引擎
+    sentiment_classifier, topic_classifier = load_models()
     
-    # 用户输入区
-    user_input = st.text_area("在此输入英文语句：", "The company's revenue increased by 20% this quarter.")
+    # ==================== 用户交互区 ====================
+    st.markdown("### 🔍 实时新闻解析")
+    
+    # 预设一条能够触发 M&A 或 Company 标签的测试新闻
+    default_news = "Microsoft has officially completed its $68.7 billion acquisition of Activision Blizzard, leading to a major personnel change."
+    user_input = st.text_area("在此输入一段英文金融新闻：", default_news, height=100)
 
-    if st.button("🚀 开始分析"):
-        if user_input:
-            # 运行预测
-            result = classifier(user_input)[0]
-            label = result['label']
-            score = result['score']
+    if st.button("🚀 开始多维分析", type="primary"):
+        if user_input.strip():
+            with st.spinner("双引擎运算中..."):
+                # ---------- 执行 Pipeline 1: 情感推断 ----------
+                sent_result = sentiment_classifier(user_input)[0]
+                sent_label = sent_result['label']
+                sent_score = sent_result['score']
+                
+                # ---------- 执行 Pipeline 2: 主题推断 ----------
+                topic_result = topic_classifier(user_input)[0]
+                raw_topic = topic_result['label']
+                topic_score = topic_result['score']
+                
+                # 🌟 调用你的自定义函数进行主题翻译
+                mapped_topic = nickmuchi_to_6(raw_topic)
+                
+            # ==================== 结果展示区 ====================
+            st.markdown("#### 🎯 综合诊断结果")
             
-            # 结果展示
-            st.subheader("当前分析结果：")
-            if "POSITIVE" in label.upper():
-                st.success(f"😊 正面情绪 (置信度: {score:.2%})")
-                display_label = "😊 正面 (Positive)"
-            elif "NEGATIVE" in label.upper():
-                st.error(f"😡 负面情绪 (置信度: {score:.2%})")
-                display_label = "😡 负面 (Negative)"
-            else:
-                st.info(f"😐 中性情绪 (置信度: {score:.2%})")
-                display_label = "😐 中性 (Neutral)"
+            col1, col2 = st.columns(2)
             
-            # 将本次结果插入到历史记录的开头 (最上面)
+            with col1:
+                # 情感卡片
+                if "POSITIVE" in sent_label.upper():
+                    st.success(f"**情感倾向**: 😊 正面 (置信度: {sent_score:.1%})")
+                    display_sent = "😊 正面"
+                elif "NEGATIVE" in sent_label.upper():
+                    st.error(f"**情感倾向**: 😡 负面 (置信度: {sent_score:.1%})")
+                    display_sent = "😡 负面"
+                else:
+                    st.info(f"**情感倾向**: 😐 中性 (置信度: {sent_score:.1%})")
+                    display_sent = "😐 中性"
+            
+            with col2:
+                # 主题卡片：如果归类到了 Others，给一个灰色的视觉提示
+                if mapped_topic == "Others":
+                    st.secondary(f"**核心主题**: 📦 {mapped_topic} \n\n(底层原生标签: *{raw_topic}*, 置信度: {topic_score:.1%})")
+                else:
+                    st.info(f"**核心主题**: 🏷️ {mapped_topic} \n\n(底层原生标签: *{raw_topic}*, 置信度: {topic_score:.1%})")
+            
+            # 记录历史数据
             st.session_state.history.insert(0, {
-                "新闻语句": user_input,
-                "情感倾向": display_label,
-                "置信度": f"{score:.2%}"
+                "新闻原文": user_input,
+                "情感倾向": display_sent,
+                "所属主题": mapped_topic,
+                "情感置信度": f"{sent_score:.1%}",
+                "主题置信度": f"{topic_score:.1%}"
             })
             
         else:
-            st.warning("⚠️ 请输入文字后再点击分析。")
+            st.warning("⚠️ 文本不能为空，请输入新闻内容。")
 
-    # ==================== 历史记录展示区 ====================
+    # ==================== 历史记录看板 ====================
     if st.session_state.history:
-        st.markdown("---")
-        st.subheader("📝 历史预测记录")
+        st.markdown("<br><hr>", unsafe_allow_html=True)
+        st.markdown("### 📝 分析流水台账")
         
-        # 将字典列表转换为 DataFrame 以便更美观地展示
         history_df = pd.DataFrame(st.session_state.history)
-        
-        # 使用 st.dataframe 展示表格，并设置宽度自适应
         st.dataframe(history_df, use_container_width=True)
         
-        # 添加清空记录按钮
-        if st.button("🗑️ 清空历史记录"):
+        if st.button("🗑️ 清空流水账"):
             st.session_state.history = []
-            st.rerun() # 重新运行应用以刷新页面
+            st.rerun()
 
 except Exception as e:
-    st.error(f"模型加载出错，请检查模型是否已公开。错误详情: {e}")
+    st.error(f"引擎初始化失败，请检查网络或模型配置。错误日志: {e}")
 
 st.markdown("---")
-st.caption("Model: Norarara/financial-sentiment-model | Powered by Streamlit")
+st.caption("Architecture: Sentiment Engine (Custom Fine-tuned) + Topic Engine (finbert-tone-finetuned) | Powered by Streamlit")
