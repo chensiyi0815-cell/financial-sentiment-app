@@ -102,13 +102,14 @@ try:
                     st.info(f"**情感倾向**: 😐 中性 (置信度: {sent_score:.1%})")
                     display_sent = "😐 中性"
             
+
             with col2:
-                # 主题卡片：如果归类到了 Others，给一个灰色的视觉提示
+                # 主题卡片：精简显示，去除底层标签和置信度
                 if mapped_topic == "Others":
-                    st.secondary(f"**核心主题**: 📦 {mapped_topic} \n\n(底层原生标签: *{raw_topic}*, 置信度: {topic_score:.1%})")
+                    # 使用 warning 显示灰色/黄色提示
+                    st.warning(f"**核心主题**: 📦 {mapped_topic}")
                 else:
-                    st.info(f"**核心主题**: 🏷️ {mapped_topic} \n\n(底层原生标签: *{raw_topic}*, 置信度: {topic_score:.1%})")
-            
+                    st.info(f"**核心主题**: 🏷️ {mapped_topic}")
             # 记录历史数据
             st.session_state.history.insert(0, {
                 "新闻原文": user_input,
