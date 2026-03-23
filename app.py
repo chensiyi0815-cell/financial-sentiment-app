@@ -59,7 +59,7 @@ def load_models():
     sentiment_model_id = "ychenqz/financial-sentiment-model" 
     sentiment_pipe = pipeline("text-classification", model=sentiment_model_id, device=-1)
     
-    # 2. Topic Classification Model (Requires token authentication)
+    # 2. Topic Classification Model
     topic_model_id = "nickmuchi/finbert-tone-finetuned-finance-topic-classification"
     topic_pipe = pipeline("text-classification", model=topic_model_id, device=-1, token=hf_token)
     
@@ -72,19 +72,18 @@ try:
     # ==================== User Interaction Section ====================
     st.markdown("### 🔍 Real-time News Analysis")
     
-    # Text Input Area with Placeholder
+    # Text Input Area
     user_input = st.text_area(
-        "Enter English financial news here (💡 Tip: Inputs with < 300 words more accurate results):", 
+        "Enter English financial news here (💡 Tip: Inputs with < 300 words yield more accurate results):", 
         value="",               
         height=100,
         placeholder="Please enter text here"  
     )
 
     # Dynamic word count logic
-    # Added fallback to 0 if input is empty to avoid incorrect counts
     word_count = len(user_input.split()) if user_input.strip() else 0
     
-    # Word count display component
+    # Word count display
     if word_count > 300:
         st.error(f"📊 Current word count: **{word_count} / 300** (Exceeded limit, please shorten!)")
     else:
@@ -106,6 +105,7 @@ try:
                 # ---------- Execute Pipeline 2 (Topic) ----------
                 topic_result = topic_classifier(user_input)[0]
                 raw_topic = topic_result['label']
+                topic_score = topic_result['score']
                 mapped_topic = nickmuchi_to_6(raw_topic)
                 
             # ==================== Results Display Section ====================
@@ -113,7 +113,6 @@ try:
             col1, col2 = st.columns(2)
             
             with col1:
-                # Sentiment Judgement
                 if "POSITIVE" in sent_label.upper():
                     st.success(f"**Sentiment**: 😊 Positive (Confidence: {sent_score:.1%})")
                     display_sent = "😊 Positive"
@@ -125,20 +124,20 @@ try:
                     display_sent = "😐 Neutral"
             
             with col2:
-                # Topic Judgement (Streamlined UI)
                 if mapped_topic == "Others":
                     st.warning(f"**Core Topic**: 📦 {mapped_topic}")
                 else:
                     st.info(f"**Core Topic**: 🏷️ {mapped_topic}")
             
-            # Record historical data
+            # 🌟 FIXED: Strictly enforcing the 5 requested English columns
             st.session_state.history.insert(0, {
                 "Original News": user_input,
                 "Sentiment": display_sent,
-                "Topic": mapped_topic
+                "Topic": mapped_topic,
+                "Sentiment Confidence": f"{sent_score:.1%}",
+                "Topic Confidence": f"{topic_score:.1%}"
             })
             
-            # Strictly control history records up to 50 items
             st.session_state.history = st.session_state.history[:50]
 
     # ==================== History Dashboard Section ====================
@@ -148,7 +147,6 @@ try:
         
         history_df = pd.DataFrame(st.session_state.history)
         
-        # Control Panel: Search box (wide) + Download button (narrow) + Clear button (narrow)
         col_search, col_download, col_clear = st.columns([2, 1, 1])
         
         with col_search:
@@ -157,7 +155,6 @@ try:
         with col_download:
             st.write("") 
             st.write("")
-            # Generate CSV (utf-8-sig ensures broader compatibility)
             csv_data = history_df.to_csv(index=False).encode('utf-8-sig') 
             st.download_button(
                 label="📥 Download CSV",
@@ -174,15 +171,14 @@ try:
                 st.session_state.history = []
                 st.rerun()
 
-        # Filter data based on search query
         if search_query:
+            # Match the exact English column name "Original News"
             display_df = history_df[history_df["Original News"].str.contains(search_query, case=False, na=False)]
             st.caption(f"Found {len(display_df)} records containing '{search_query}' (Max 50 saved, showing top 5):")
         else:
             display_df = history_df
             st.caption(f"Currently saved {len(history_df)} records (Max 50 saved, showing top 5):")
             
-        # Display only the top 5 records in the frontend
         st.dataframe(display_df.head(5), use_container_width=True)
 
 except Exception as e:
