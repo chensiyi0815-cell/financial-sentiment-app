@@ -43,13 +43,18 @@ if 'history' not in st.session_state:
 # ==================== 双引擎加载 ====================
 @st.cache_resource(show_spinner="正在加载 AI 分析引擎，请稍候...")
 def load_models():
-    # 1. 情感分析模型 (Pipeline 1)
+    # 👉 核心修改 1：从 Streamlit 的加密环境变量中读取你的 HF Token
+    hf_token = st.secrets["HF_TOKEN"]
+    
+    # 1. 情感分析模型 (Pipeline 1) - 公开模型，不需要 token
     sentiment_model_id = "ychenqz/financial-sentiment-model" 
     sentiment_pipe = pipeline("text-classification", model=sentiment_model_id, device=-1)
     
-    # 2. 主题分类模型 (Pipeline 2) - 盲测冠军模型
+    # 2. 主题分类模型 (Pipeline 2) - 受保护模型，必须亮明 token！
     topic_model_id = "nickmuchi/finbert-tone-finetuned-finance-topic-classification"
-    topic_pipe = pipeline("text-classification", model=topic_model_id, device=-1)
+    
+    # 👉 核心修改 2：在这里传入 token=hf_token 参数
+    topic_pipe = pipeline("text-classification", model=topic_model_id, device=-1, token=hf_token)
     
     return sentiment_pipe, topic_pipe
 
