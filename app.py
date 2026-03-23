@@ -69,29 +69,42 @@ try:
     # 唤醒双引擎
     sentiment_classifier, topic_classifier = load_models()
     
+
     # ==================== 用户交互区 ====================
     st.markdown("### 🔍 实时新闻解析")
     
     default_news = "Microsoft has officially completed its $68.7 billion acquisition of Activision Blizzard, leading to a major personnel change."
     
-    # 优化 2：修改提示为 <300 字，并开启自带的实时字数统计器
+    # 移除 max_chars，让用户自由输入
     user_input = st.text_area(
-        "在此输入一段英文金融新闻（💡 提示：输入 <300 字的内容，判断更准确）：", 
+        "在此输入一段英文金融新闻（💡 提示：输入 <300 个单词的内容，判断更准确）：", 
         default_news, 
-        height=100,
-        max_chars=300  # 👈 就是这个魔法参数！它会自动在右下角显示实时字数
+        height=100
     )
-    st.markdown("### 🔍 实时新闻解析")
+
+    # 🌟 Python 级实时单词统计：按空格和标点切分计算真实的英文单词数
+    word_count = len(user_input.split())
     
-    default_news = "Microsoft has officially completed its $68.7 billion acquisition of Activision Blizzard, leading to a major personnel change."
+    # 在输入框下方给出一个动态的字数提示组件
+    if word_count > 300:
+        st.error(f"📊 当前单词数：**{word_count} / 300**（已超长，请删减！）")
+    else:
+        st.caption(f"📊 当前单词数：**{word_count} / 300** 词")
 
     if st.button("🚀 开始多维分析", type="primary"):
-        if user_input.strip():
+        # 🌟 增加字数拦截护栏 (Guardrail)
+        if not user_input.strip():
+            st.warning("⚠️ 文本不能为空，请输入新闻内容。")
+        elif word_count > 300:
+            st.error("🚨 拦截：输入内容超过了 300 个单词的限制！为了保证模型推理的准确率和速度，请删减超出的部分后再试。")
+        else:
             with st.spinner("双引擎运算中..."):
                 # ---------- 执行 Pipeline 1 ----------
                 sent_result = sentiment_classifier(user_input)[0]
+                # ... (下面的代码保持你原来的原样不动) ...
                 sent_label = sent_result['label']
                 sent_score = sent_result['score']
+
                 
                 # ---------- 执行 Pipeline 2 ----------
                 topic_result = topic_classifier(user_input)[0]
