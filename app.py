@@ -74,7 +74,7 @@ try:
     
     # Text Input Area with Placeholder
     user_input = st.text_area(
-        "Enter English financial news here (💡 Tip: Inputs with < 300 words yield more accurate results):", 
+        "Enter English financial news here (💡 Tip: Inputs with < 300 words more accurate results):", 
         value="",               
         height=100,
         placeholder="Please enter text here"  
