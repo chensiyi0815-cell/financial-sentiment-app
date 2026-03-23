@@ -1,5 +1,6 @@
 import streamlit as st
 from transformers import pipeline
+import torch
 import pandas as pd
 
 # ==================== Global Page Setup ====================
@@ -112,7 +113,7 @@ try:
             col1, col2 = st.columns(2)
             
             with col1:
-                # Sentiment Judgement
+                # Sentiment Judgement: Green for Positive, Red for Negative, Yellow for Neutral
                 if "POSITIVE" in sent_label.upper():
                     st.success(f"**Sentiment**: 😊 Positive (Confidence: {sent_score:.1%})")
                     display_sent = "😊 Positive"
@@ -120,15 +121,23 @@ try:
                     st.error(f"**Sentiment**: 😡 Negative (Confidence: {sent_score:.1%})")
                     display_sent = "😡 Negative"
                 else:
-                    st.info(f"**Sentiment**: 😐 Neutral (Confidence: {sent_score:.1%})")
+                    st.warning(f"**Sentiment**: 😐 Neutral (Confidence: {sent_score:.1%})")
                     display_sent = "😐 Neutral"
             
             with col2:
-                # Topic Judgement
-                if mapped_topic == "Others":
-                    st.warning(f"**Core Topic**: 📦 {mapped_topic}")
-                else:
-                    st.info(f"**Core Topic**: 🏷️ {mapped_topic}")
+                # Topic Mapping to Emojis
+                topic_emoji_map = {
+                    "Stock": "📈",
+                    "Financials": "💸",
+                    "Others": "📦",
+                    "Macro": "🌏",
+                    "M&A | Investments": "💹",
+                    "Company | Product News": "📰"
+                }
+                topic_emoji = topic_emoji_map.get(mapped_topic, "🏷️")
+                
+                # Topic Judgement: Always Blue (st.info)
+                st.info(f"**Core Topic**: {topic_emoji} {mapped_topic}")
             
             # Record historical data strictly with the 5 English keys
             st.session_state.history.insert(0, {
@@ -150,7 +159,7 @@ try:
         # 1. Create initial DataFrame
         history_df = pd.DataFrame(st.session_state.history)
         
-        # 🌟 2. Core Fix: Force Pandas to ONLY keep these 5 exact English columns
+        # 2. Force Pandas to ONLY keep these 5 exact English columns
         desired_columns = ["Original News", "Sentiment", "Topic", "Sentiment Confidence", "Topic Confidence"]
         history_df = history_df.reindex(columns=desired_columns)
         
