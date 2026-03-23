@@ -73,8 +73,17 @@ try:
     st.markdown("### 🔍 实时新闻解析")
     
     default_news = "Microsoft has officially completed its $68.7 billion acquisition of Activision Blizzard, leading to a major personnel change."
-    # 优化 2：加入字数限制提示
-    user_input = st.text_area("在此输入一段英文金融新闻（💡 提示：输入 <100 字的内容，判断更准确）：", default_news, height=100)
+    
+    # 优化 2：修改提示为 <300 字，并开启自带的实时字数统计器
+    user_input = st.text_area(
+        "在此输入一段英文金融新闻（💡 提示：输入 <300 字的内容，判断更准确）：", 
+        default_news, 
+        height=100,
+        max_chars=300  # 👈 就是这个魔法参数！它会自动在右下角显示实时字数
+    )
+    st.markdown("### 🔍 实时新闻解析")
+    
+    default_news = "Microsoft has officially completed its $68.7 billion acquisition of Activision Blizzard, leading to a major personnel change."
 
     if st.button("🚀 开始多维分析", type="primary"):
         if user_input.strip():
