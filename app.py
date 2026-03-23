@@ -7,10 +7,12 @@ import pandas as pd
 st.set_page_config(page_title="金融新闻智能分析引擎", page_icon="📈", layout="wide")
 
 st.title("📈 金融新闻智能分析引擎")
-# 优化 1：换行并提示 6 大分类
-st.write("""
-输入一条金融新闻语句，系统将自动进行「情感诊断」与「主题归类」。\n
+
+st.markdown("输入一条金融新闻语句，系统将自动进行「情感诊断」与「主题归类」。")
+
+st.markdown("""
 **支持识别的 6 大主题分类：**
+
 `M&A | Investments (投资并购)` | `Company | Product News (公司/产品)` | `Stock (股票市场)` | `Macro (宏观经济)` | `Financials (财务数据)` | `Others (其他)`
 """)
 
