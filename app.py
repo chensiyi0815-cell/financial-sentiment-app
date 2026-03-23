@@ -3,24 +3,24 @@ from transformers import pipeline
 import torch
 import pandas as pd
 
-# ==================== 页面全局设置 ====================
-st.set_page_config(page_title="金融新闻智能分析引擎", page_icon="📈", layout="wide")
+# ==================== Global Page Setup ====================
+st.set_page_config(page_title="Financial News Smart Analysis Engine", page_icon="📈", layout="wide")
 
-st.title("📈 金融新闻智能分析引擎")
+st.title("📈 Financial News Smart Analysis Engine")
 
-# 换行并使用垂直列表展示 6 大分类
-st.markdown("输入一条金融新闻语句，系统将自动进行「情感诊断」与「主题归类」。")
+# Introduction and supported categories
+st.markdown("Enter a financial news statement, and the system will automatically perform 'Sentiment Diagnosis' and 'Topic Classification'.")
 st.markdown("""
-**支持识别的 6 大主题分类：**
-* `M&A | Investments (投资并购)`
-* `Company | Product News (公司/产品)`
-* `Stock (股票市场)`
-* `Macro (宏观经济)`
-* `Financials (财务数据)`
-* `Others (其他)`
+**Supported 6 Major Topic Categories:**
+* `M&A | Investments`
+* `Company | Product News`
+* `Stock`
+* `Macro`
+* `Financials`
+* `Others`
 """)
 
-# ==================== 核心业务映射函数 ====================
+# ==================== Core Business Mapping Function ====================
 def nickmuchi_to_6(nickmuchi_label):
     mapping = {
         "Analyst Update": "Others",
@@ -46,123 +46,121 @@ def nickmuchi_to_6(nickmuchi_label):
     }
     return mapping.get(nickmuchi_label, 'Others')
 
-# ==================== 初始化 Session State ====================
+# ==================== Initialize Session State ====================
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# ==================== 双引擎加载 ====================
-@st.cache_resource(show_spinner="正在加载 AI 分析引擎，请稍候...")
+# ==================== Dual Engine Loading ====================
+@st.cache_resource(show_spinner="Loading AI analysis engines, please wait...")
 def load_models():
     hf_token = st.secrets["HF_TOKEN"]
     
-    # 1. 情感分析模型 
+    # 1. Sentiment Analysis Model
     sentiment_model_id = "ychenqz/financial-sentiment-model" 
     sentiment_pipe = pipeline("text-classification", model=sentiment_model_id, device=-1)
     
-    # 2. 主题分类模型 (需 token 验证)
+    # 2. Topic Classification Model (Requires token authentication)
     topic_model_id = "nickmuchi/finbert-tone-finetuned-finance-topic-classification"
     topic_pipe = pipeline("text-classification", model=topic_model_id, device=-1, token=hf_token)
     
     return sentiment_pipe, topic_pipe
 
 try:
-    # 唤醒双引擎
+    # Initialize both engines
     sentiment_classifier, topic_classifier = load_models()
     
-    # ==================== 用户交互区 ====================
-    st.markdown("### 🔍 实时新闻解析")
+    # ==================== User Interaction Section ====================
+    st.markdown("### 🔍 Real-time News Analysis")
     
-    # 🌟 删除了 default_news 变量
-    
-    # 🌟 修改了文本输入框，加入了 placeholder 参数
+    # Text Input Area with Placeholder
     user_input = st.text_area(
-        "在此输入一段英文金融新闻（💡 提示：输入 <300 个单词的内容，判断更准确）：", 
-        value="",               # 确保默认输入值为空
+        "Enter English financial news here (💡 Tip: Inputs with < 300 words yield more accurate results):", 
+        value="",               
         height=100,
-        placeholder="请输入内容"  # 👈 核心魔法：原生的占位符，颜色自动变浅，输入即消失
+        placeholder="Please enter text here"  
     )
 
-    # 动态字数（单词）统计逻辑
-    # 注意：因为默认值是空了，所以要加个防呆处理，避免空字符串统计出不准确的单词数
+    # Dynamic word count logic
+    # Added fallback to 0 if input is empty to avoid incorrect counts
     word_count = len(user_input.split()) if user_input.strip() else 0
     
-    # 字数提示组件
+    # Word count display component
     if word_count > 300:
-        st.error(f"📊 当前单词数：**{word_count} / 300**（已超长，请删减！）")
+        st.error(f"📊 Current word count: **{word_count} / 300** (Exceeded limit, please shorten!)")
     else:
-        st.caption(f"📊 当前单词数：**{word_count} / 300** 词")
+        st.caption(f"📊 Current word count: **{word_count} / 300** words")
 
-    # 执行按钮与 Guardrail 拦截逻辑
-    if st.button("🚀 开始多维分析", type="primary"):
+    # Execution button and Guardrail logic
+    if st.button("🚀 Start Multi-dimensional Analysis", type="primary"):
         if not user_input.strip():
-            st.warning("⚠️ 文本不能为空，请输入新闻内容。")
+            st.warning("⚠️ Text cannot be empty, please enter news content.")
         elif word_count > 300:
-            st.error("🚨 拦截：输入内容超过了 300 个单词的限制！为了保证模型推理的准确率和速度，请删减超出的部分后再试。")
+            st.error("🚨 Blocked: Input exceeds the 300-word limit! To ensure inference accuracy and speed, please shorten the text and try again.")
         else:
-            with st.spinner("双引擎运算中..."):
-                # ---------- 执行 Pipeline 1 ----------
+            with st.spinner("Running dual engines..."):
+                # ---------- Execute Pipeline 1 (Sentiment) ----------
                 sent_result = sentiment_classifier(user_input)[0]
                 sent_label = sent_result['label']
                 sent_score = sent_result['score']
                 
-                # ---------- 执行 Pipeline 2 ----------
+                # ---------- Execute Pipeline 2 (Topic) ----------
                 topic_result = topic_classifier(user_input)[0]
                 raw_topic = topic_result['label']
                 mapped_topic = nickmuchi_to_6(raw_topic)
                 
-            # ==================== 结果展示区 ====================
-            st.markdown("#### 🎯 综合诊断结果")
+            # ==================== Results Display Section ====================
+            st.markdown("#### 🎯 Comprehensive Diagnosis Results")
             col1, col2 = st.columns(2)
             
             with col1:
-                # 情感判定
+                # Sentiment Judgement
                 if "POSITIVE" in sent_label.upper():
-                    st.success(f"**情感倾向**: 😊 正面 (置信度: {sent_score:.1%})")
-                    display_sent = "😊 正面"
+                    st.success(f"**Sentiment**: 😊 Positive (Confidence: {sent_score:.1%})")
+                    display_sent = "😊 Positive"
                 elif "NEGATIVE" in sent_label.upper():
-                    st.error(f"**情感倾向**: 😡 负面 (置信度: {sent_score:.1%})")
-                    display_sent = "😡 负面"
+                    st.error(f"**Sentiment**: 😡 Negative (Confidence: {sent_score:.1%})")
+                    display_sent = "😡 Negative"
                 else:
-                    st.info(f"**情感倾向**: 😐 中性 (置信度: {sent_score:.1%})")
-                    display_sent = "😐 中性"
+                    st.info(f"**Sentiment**: 😐 Neutral (Confidence: {sent_score:.1%})")
+                    display_sent = "😐 Neutral"
             
             with col2:
-                # 主题判定（精简版 UI）
+                # Topic Judgement (Streamlined UI)
                 if mapped_topic == "Others":
-                    st.warning(f"**核心主题**: 📦 {mapped_topic}")
+                    st.warning(f"**Core Topic**: 📦 {mapped_topic}")
                 else:
-                    st.info(f"**核心主题**: 🏷️ {mapped_topic}")
+                    st.info(f"**Core Topic**: 🏷️ {mapped_topic}")
             
-            # 记录历史数据
+            # Record historical data
             st.session_state.history.insert(0, {
-                "新闻原文": user_input,
-                "情感倾向": display_sent,
-                "所属主题": mapped_topic
+                "Original News": user_input,
+                "Sentiment": display_sent,
+                "Topic": mapped_topic
             })
             
-            # 严格控制历史记录在 50 条以内
+            # Strictly control history records up to 50 items
             st.session_state.history = st.session_state.history[:50]
 
-    # ==================== 历史记录看板 ====================
+    # ==================== History Dashboard Section ====================
     if st.session_state.history:
         st.markdown("<br><hr>", unsafe_allow_html=True)
-        st.markdown("### 📝 历史分析记录")
+        st.markdown("### 📝 Historical Analysis Records")
         
         history_df = pd.DataFrame(st.session_state.history)
         
-        # 控制面板：搜索框 (宽) + 下载按钮 (窄) + 清空按钮 (窄)
+        # Control Panel: Search box (wide) + Download button (narrow) + Clear button (narrow)
         col_search, col_download, col_clear = st.columns([2, 1, 1])
         
         with col_search:
-            search_query = st.text_input("🔍 搜索历史记录（输入新闻关键词）：", placeholder="例如：Microsoft")
+            search_query = st.text_input("🔍 Search history (Enter news keywords):", placeholder="e.g., Microsoft")
             
         with col_download:
             st.write("") 
             st.write("")
-            # 生成防乱码的 CSV
+            # Generate CSV (utf-8-sig ensures broader compatibility)
             csv_data = history_df.to_csv(index=False).encode('utf-8-sig') 
             st.download_button(
-                label="📥 下载 CSV",
+                label="📥 Download CSV",
                 data=csv_data,
                 file_name="finance_analysis_history.csv",
                 mime="text/csv",
@@ -172,23 +170,23 @@ try:
         with col_clear:
             st.write("") 
             st.write("")
-            if st.button("🗑️ 清空历史记录", use_container_width=True):
+            if st.button("🗑️ Clear History", use_container_width=True):
                 st.session_state.history = []
                 st.rerun()
 
-        # 根据搜索词过滤数据
+        # Filter data based on search query
         if search_query:
-            display_df = history_df[history_df["新闻原文"].str.contains(search_query, case=False, na=False)]
-            st.caption(f"为您找到 {len(display_df)} 条包含 '{search_query}' 的记录（最大保存 50 条，仅展示前 5 条）：")
+            display_df = history_df[history_df["Original News"].str.contains(search_query, case=False, na=False)]
+            st.caption(f"Found {len(display_df)} records containing '{search_query}' (Max 50 saved, showing top 5):")
         else:
             display_df = history_df
-            st.caption(f"当前共保存 {len(history_df)} 条记录（最大保存 50 条，仅展示前 5 条）：")
+            st.caption(f"Currently saved {len(history_df)} records (Max 50 saved, showing top 5):")
             
-        # 前端仅展示前 5 条数据
+        # Display only the top 5 records in the frontend
         st.dataframe(display_df.head(5), use_container_width=True)
 
 except Exception as e:
-    st.error(f"引擎初始化失败，请检查网络或模型配置。错误日志: {e}")
+    st.error(f"Engine initialization failed, please check network or model config. Error log: {e}")
 
 st.markdown("---")
 st.caption("Architecture: Sentiment Engine (Custom Fine-tuned) + Topic Engine (finbert-tone-finetuned) | Powered by Streamlit")
