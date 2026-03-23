@@ -72,17 +72,19 @@ try:
     # ==================== 用户交互区 ====================
     st.markdown("### 🔍 实时新闻解析")
     
-    default_news = "Microsoft has officially completed its $68.7 billion acquisition of Activision Blizzard, leading to a major personnel change."
+    # 🌟 删除了 default_news 变量
     
-    # 文本输入框
+    # 🌟 修改了文本输入框，加入了 placeholder 参数
     user_input = st.text_area(
         "在此输入一段英文金融新闻（💡 提示：输入 <300 个单词的内容，判断更准确）：", 
-        default_news, 
-        height=100
+        value="",               # 确保默认输入值为空
+        height=100,
+        placeholder="请输入内容"  # 👈 核心魔法：原生的占位符，颜色自动变浅，输入即消失
     )
 
     # 动态字数（单词）统计逻辑
-    word_count = len(user_input.split())
+    # 注意：因为默认值是空了，所以要加个防呆处理，避免空字符串统计出不准确的单词数
+    word_count = len(user_input.split()) if user_input.strip() else 0
     
     # 字数提示组件
     if word_count > 300:
